@@ -21,6 +21,12 @@ on:
         type: boolean
         default: false
 
+      auth_gh:
+        description: 'Enable GitHub authentication'
+        required: false
+        type: boolean
+        default: false
+
       platforms:
         description: "JSON array of platforms for the matrix"
         required: false
@@ -35,6 +41,11 @@ on:
         required: false
         type: boolean
         default: false
+
+    secrets:
+      REPO_WRITE_PACKAGES_PAT:
+        description: 'GitHub token for authentication'
+        required: false
 
 jobs:
   quality:
@@ -58,6 +69,12 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Configure Git
+        if: ${{ inputs.auth_gh }}
+        run: |
+          git config --local user.email "pat@harmony-labs.ai"
+          git config --local user.name "harmony-labs[bot]"
+
       - name: Set Environment Variables
         run: |
           # Set CARGO_INCREMENTAL
@@ -72,9 +89,15 @@ jobs:
           else
             echo "LOG_LEVEL=info" >> $GITHUB_ENV
           fi
+          # Set GITHUB_TOKEN
+          if [ "${{ inputs.auth_gh }}" = "true" ]; then
+            echo "GITHUB_TOKEN=${{ secrets.REPO_WRITE_PACKAGES_PAT }}" >> $GITHUB_ENV
+            echo "GITHUB_USERNAME=harmony-labs-bot" >> $GITHUB_ENV
+          fi
 
       - name: Build Project
-        run: cargo build ${{ inputs.cargo_build_args }}
+        run: |
+          cargo build ${{ inputs.cargo_build_args }}
 
       - name: Run Tests
         run: cargo test ${{ inputs.cargo_test_args }}
